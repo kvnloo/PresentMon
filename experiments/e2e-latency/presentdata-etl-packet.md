@@ -61,3 +61,20 @@ Do not infer root cause from zero-valued overlay samples alone.
 - [ ] shortest useful failing interval
 - [ ] candidate regression fixture if deterministic
 - [ ] upstream-ready evidence note for `GameTechDev/PresentMon#605`
+
+
+## Ready-to-run wrapper
+
+The repository's existing `Tools\\start_etl_collection.cmd` and
+`Tools\\stop_etl_collection.cmd` are wrapped without changing their provider
+set. Start/stop must run from an Administrator PowerShell.
+
+```powershell
+.\\experiments\\e2e-latency\\capture-etl.ps1 -Action start -OutputDir .\\latency-results\\bad-run
+# Reproduce the issue briefly.
+.\\experiments\\e2e-latency\\capture-etl.ps1 -Action stop -OutputDir .\\latency-results\\bad-run
+.\\experiments\\e2e-latency\\capture-etl.ps1 -Action replay -OutputDir .\\latency-results\\bad-run -PresentMonExe <path-to-PresentMon.exe>
+```
+
+The directory retains the environment receipt, capture timestamps,
+`trace.etl`, and `replay.csv`.
