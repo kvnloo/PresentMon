@@ -317,6 +317,39 @@ namespace PacedPolling
 		}
 	}
 
+	void ExecutePacedPollingDeterminismTest(const std::string& testName, uint32_t targetPid,
+		double recordingStart, double recordingStop, double pollPeriod, TestFixture& fixture)
+	{
+		auto runOnce = [&](const std::string& suffix) {
+			const auto outCsvPath =
+				MakeAbsolutePath(std::format("{}\\{}_{}_actual.csv", outFolder_, testName, suffix));
+			fixture.LaunchClient({
+				"--process-id"s, std::to_string(targetPid),
+				"--output-path"s, outCsvPath,
+				"--run-time"s, std::to_string(recordingStop - recordingStart),
+				"--run-start"s, std::to_string(recordingStart),
+				"--poll-period"s, std::to_string(pollPeriod),
+				"--metric-offset"s, "500"s,
+				"--window-size"s, "1000"s,
+			});
+			return LoadRunFromCsv(outCsvPath);
+		};
+
+		const auto first = runOnce("determinism_1");
+		const auto second = runOnce("determinism_2");
+		if (const auto report = MakeMismatchReport(first, second); !report.empty()) {
+			const auto reportPath = MakeAbsolutePath(
+				std::format("{}\\{}_determinism_mismatch.txt", outFolder_, testName));
+			std::ofstream reportStream{ reportPath };
+			reportStream << report;
+			Logger::WriteMessage(std::format(
+				"Paced polling determinism mismatch report: {}\n", reportPath).c_str());
+			Logger::WriteMessage(report.c_str());
+			Assert::Fail(pmon::util::str::ToWide(
+				"Paced polling output differed between identical ETL replays.").c_str());
+		}
+	}
+
 	void ExecutePacedPollingTest(const std::string& testName, uint32_t targetPid, double recordingStart,
 		double recordingStop, double pollPeriod, TestFixture& fixture)
 	{
@@ -458,6 +491,15 @@ namespace PacedPolling
 			constexpr auto pollPeriod = PollPeriodFromHz(140.0);
 			ExecutePacedPollingTest(STRINGIFY(TEST_NAME), targetPid, recordingStart, recordingStop,
 				pollPeriod, fixture_);
+		}
+		TEST_METHOD(FullTraceDeterminism)
+		{
+			const uint32_t targetPid = 5756;
+			const auto recordingStart = 4.5;
+			const auto recordingStop = 17.;
+			constexpr auto pollPeriod = PollPeriodFromHz(140.0);
+			ExecutePacedPollingDeterminismTest(STRINGIFY(TEST_NAME), targetPid, recordingStart,
+				recordingStop, pollPeriod, fixture_);
 		}
 	};
 #undef TEST_NAME
